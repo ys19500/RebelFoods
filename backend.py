@@ -10,9 +10,9 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace "*" with your frontend domain
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["https://rebel-foods-demo-price-extraction-bot.streamlit.app"],  # In production, replace "*" with your frontend domain
+    allow_methods=["https://rebel-foods-demo-price-extraction-bot.streamlit.app"],
+    allow_headers=["https://rebel-foods-demo-price-extraction-bot.streamlit.app"],
 )
 
 class URLInput(BaseModel):
