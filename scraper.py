@@ -8,6 +8,14 @@ from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+options = Options()
+options.add_argument('--headless') 
+options.add_argument('--disable-gpu')  
+options.add_argument('--no-sandbox')  
+options.add_argument('--disable-dev-shm-usage')  
 
 # Detect website type
 def identify_website(url):
@@ -20,7 +28,8 @@ def identify_website(url):
     return None
 
 def scrape_swiggy(url):
-    driver = webdriver.Safari()
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
     driver.get(url)
 
     WebDriverWait(driver, 10).until(
@@ -105,7 +114,8 @@ def scrape_swiggy(url):
     return items, restaurant, city
 
 def scrape_zomato(url):
-    driver = webdriver.Safari()
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
     driver.get(url)
     time.sleep(5)
 
@@ -134,7 +144,7 @@ def scrape_zomato(url):
     return items, restaurant, city
 
 def scrape_mystore(url):
-    driver = webdriver.Safari()
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     driver.get(url)
     time.sleep(5)
     soup = BeautifulSoup(driver.page_source, "html.parser")
