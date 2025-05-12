@@ -1,10 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-import sys
 
-sys.path.append( '/Users/yatatma/Desktop/bot/scraper' )
-import scraper
+from scraper import scrape_url
 
 
 app = FastAPI()
