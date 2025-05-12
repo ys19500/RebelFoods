@@ -2,18 +2,26 @@ import os
 import re
 import csv
 import time
+import shutil
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-options = Options()
+
 def get_driver():
-    
+    # Path to the installed Chrome and ChromeDriver
+    chrome_path = shutil.which("google-chrome")
+    chromedriver_path = shutil.which("chromedriver")
+
+    if not chromedriver_path:
+        raise RuntimeError("ChromeDriver not found in the system PATH.")
+
+    # Set up Chrome options for headless browsing
+    options = Options()
+    options.binary_location = chrome_path
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
@@ -23,7 +31,7 @@ def get_driver():
     options.add_argument('--start-maximized')
     options.add_argument('--window-size=1920,1080')
 
-    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    return webdriver.Chrome(executable_path=chromedriver_path, options=options)
 
 def identify_website(url):
     if "swiggy" in url:
@@ -35,13 +43,14 @@ def identify_website(url):
     return None
 
 def scrape_swiggy(url):
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver = get_driver()
 
     driver.get(url)
 
     WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'QMaYM')]"))
     )
+
     try:
         city_elem = driver.find_element(By.XPATH, "//a[contains(@href, '/city/')]/span[@itemprop='name']")
         city = city_elem.text.strip()
@@ -121,7 +130,7 @@ def scrape_swiggy(url):
     return items, restaurant, city
 
 def scrape_zomato(url):
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver = get_driver()
 
     driver.get(url)
     time.sleep(5)
@@ -151,7 +160,7 @@ def scrape_zomato(url):
     return items, restaurant, city
 
 def scrape_mystore(url):
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver = get_driver()
     driver.get(url)
     time.sleep(5)
     soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -188,7 +197,6 @@ def scrape_url(url):
     else:
         return None, None, None, None
     return data, restaurant, city, platform
-
 
 def extract_restaurant_and_city(url):
     url = url.lower()

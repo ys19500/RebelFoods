@@ -1,49 +1,46 @@
+# Use an official Python runtime as a parent image
 FROM python:3.11-slim
 
-# Install dependencies
+# Install dependencies for Chrome and ChromeDriver
 RUN apt-get update && apt-get install -y \
     wget \
-    unzip \
     curl \
-    gnupg \
+    unzip \
     ca-certificates \
-    fonts-liberation \
-    libappindicator3-1 \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libgdk-pixbuf2.0-0 \
-    libnspr4 \
+    libx11-dev \
+    libgconf-2-4 \
     libnss3 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    xdg-utils \
-    --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libgbm1 \
+    libasound2 \
+    google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Chrome
-RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-linux.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get update && apt-get install -y google-chrome-stable
+# Install ChromeDriver
+RUN wget -q https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip \
+    && unzip chromedriver_linux64.zip \
+    && mv chromedriver /usr/local/bin/ \
+    && rm chromedriver_linux64.zip
 
-# Set display port to avoid crash
+# Set environment variables for chrome options
 ENV DISPLAY=:99
+ENV CHROME_BIN=/usr/bin/google-chrome-stable
+ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
 
 # Set working directory
 WORKDIR /app
 
-# Copy app files
-COPY . .
-
-# Install Python packages
+# Copy the requirements file and install the Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port
+# Copy the app code
+COPY . .
+
+# Expose the required port
 EXPOSE 10000
 
-# Start FastAPI
+# Command to run the application
 CMD ["uvicorn", "backend:app", "--host", "0.0.0.0", "--port", "10000"]
