@@ -9,15 +9,18 @@ from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
 def get_driver():
     # Path to the installed Chrome and ChromeDriver
-    chrome_path = shutil.which("google-chrome")
+    chrome_path = shutil.which("google-chrome") or shutil.which("chrome")  # fallback if needed
     chromedriver_path = shutil.which("chromedriver")
 
     if not chromedriver_path:
         raise RuntimeError("ChromeDriver not found in the system PATH.")
+    if not chrome_path:
+        raise RuntimeError("Google Chrome not found in the system PATH.")
 
     # Set up Chrome options for headless browsing
     options = Options()
@@ -31,7 +34,8 @@ def get_driver():
     options.add_argument('--start-maximized')
     options.add_argument('--window-size=1920,1080')
 
-    return webdriver.Chrome(executable_path=chromedriver_path, options=options)
+    service = Service(executable_path=chromedriver_path)
+    return webdriver.Chrome(service=service, options=options)
 
 def identify_website(url):
     if "swiggy" in url:
