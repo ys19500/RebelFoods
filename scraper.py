@@ -3,6 +3,7 @@ import re
 import csv
 import time
 import shutil
+import sys
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
@@ -13,6 +14,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.remote.webdriver import WebDriver
 import socket
+import json  # Import for JSON output
 
 def is_docker():
     """
@@ -35,12 +37,22 @@ def get_driver() -> WebDriver:
         chrome_options.add_argument('--disable-infobars')
         chrome_options.add_argument('--start-maximized')
         chrome_options.add_argument('--window-size=1920,1080')
-        # Use a remote driver, assuming the Selenium Grid is running at the standard port
-        return webdriver.Remote(command_executor='http://selenium:4444/wd/hub', options=chrome_options)
+        try:
+            # Use a remote driver, assuming the Selenium Grid is running at the standard port
+            driver = webdriver.Remote(command_executor='http://selenium:4444/wd/hub', options=chrome_options)
+            print("Successfully connected to Selenium Grid.")
+            return driver
+        except Exception as e:
+            print(f"Error connecting to Selenium Grid: {e}")
+            print("Make sure the Selenium Grid is running and accessible.")
+            raise  # Re-raise the exception to stop execution
     else:
-        print("Running locally...")
-        chrome_path = shutil.which("google-chrome") or shutil.which("chrome")
+        print("Running locally (macOS)...")
+        chrome_path = "/Applications"
         chromedriver_path = shutil.which("chromedriver")
+
+        print(f"Detected Chrome path: {chrome_path}")
+        print(f"Detected ChromeDriver path: {chromedriver_path}")
 
         if not chromedriver_path:
             print("ChromeDriver not found in the system PATH.  Attempting to download...")
@@ -49,14 +61,20 @@ def get_driver() -> WebDriver:
                 chromedriver_path = ChromeDriverManager().install()
                 print(f"ChromeDriver downloaded to: {chromedriver_path}")
             except ImportError:
-                raise RuntimeError("ChromeDriver not found and webdriver_manager is not installed.\n"
-                                   "Please ensure ChromeDriver is in your PATH or install webdriver_manager:\n"
-                                   "`pip install webdriver-manager`")
+                error_message = "ChromeDriver not found and webdriver_manager is not installed.\n" \
+                                   "Please ensure ChromeDriver is in your PATH or install webdriver_manager:\n" \
+                                   "`pip install webdriver-manager`"
+                print(error_message)
+                raise RuntimeError(error_message)
             except Exception as e:
-                raise RuntimeError(f"Error downloading ChromeDriver: {e}")
+                error_message = f"Error downloading ChromeDriver: {e}"
+                print(error_message)
+                raise RuntimeError(error_message)
 
         if not chrome_path:
-            raise RuntimeError("Google Chrome not found in the system PATH.")
+            error_message = "Google Chrome not found in the system PATH."
+            print(error_message)
+            raise RuntimeError(error_message)
 
         options = Options()
         options.add_argument('--headless')
@@ -73,11 +91,12 @@ def get_driver() -> WebDriver:
             driver = webdriver.Chrome(service=service, options=options)
             return driver
         except WebDriverException as e:
-            print(f"WebDriverException: {e}")
-            print("Please check your Chrome and ChromeDriver versions.  They may be incompatible.")
-            print("Chrome path: ", chrome_path)
-            print("ChromeDriver path: ", chromedriver_path)
-            raise
+            error_message = f"WebDriverException: {e}\n" \
+                            "Please check your Chrome and ChromeDriver versions.  They may be incompatible.\n" \
+                            f"Chrome path: {chrome_path}\n" \
+                            f"ChromeDriver path: {chromedriver_path}"
+            print(error_message)
+            raise WebDriverException(error_message)
 
 def identify_website(url):
     """Identifies the website from the URL."""
@@ -91,6 +110,7 @@ def identify_website(url):
 
 def scrape_swiggy(url, driver: WebDriver):
     """Scrapes data from Swiggy."""
+    print(f"Scraping Swiggy: {url}")  # Added logging
     driver.get(url)
 
     try:
@@ -98,7 +118,8 @@ def scrape_swiggy(url, driver: WebDriver):
             EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'QMaYM')]"))
         )
     except Exception as e:
-        print(f"Error waiting for Swiggy load: {e}")
+        error_message = f"Error waiting for Swiggy load: {e}"
+        print(error_message)
         return [], "UnknownRestaurant", "UnknownCity"
 
     try:
@@ -175,11 +196,12 @@ def scrape_swiggy(url, driver: WebDriver):
             })
     except NoSuchElementException:
         pass
-
+    print(f"Swiggy Data: {items}, Restaurant: {restaurant}, City: {city}")
     return items, restaurant, city
 
 def scrape_zomato(url, driver: WebDriver):
     """Scrapes data from Zomato."""
+    print(f"Scraping Zomato: {url}")  # Added logging
     driver.get(url)
     time.sleep(5)
 
@@ -191,8 +213,11 @@ def scrape_zomato(url, driver: WebDriver):
         if breadcrumb_links and len(breadcrumb_links) >= 2:
             city = breadcrumb_links[2].get_attribute("title").strip()
             restaurant = breadcrumb_links[4].get_attribute("title").strip()
-    except Exception:
-        pass
+    except Exception as e:
+        error_message = f"Error extracting Zomato breadcrumbs: {e}"
+        print(error_message)
+        city = "UnknownCity"
+        restaurant = "UnknownRestaurant"
 
     items = []
     try:
@@ -211,33 +236,44 @@ def scrape_zomato(url, driver: WebDriver):
                 name = "N/A"
             items.append({"name": name, "price": price})
     except Exception as e:
-        print(f"Error scraping Zomato: {e}")
+        error_message = f"Error scraping Zomato: {e}"
+        print(error_message)
+        items = [] # IMPORTANT:  Return an empty list, not None, to avoid errors later
+
+    print(f"Zomato Data: {items}, Restaurant: {restaurant}, City: {city}")
     return items, restaurant, city
 
 def scrape_mystore(url, driver: WebDriver):
     """Scrapes data from Mystore."""
+    print(f"Scraping Mystore: {url}") # Added logging
     driver.get(url)
     time.sleep(5)
-    soup = BeautifulSoup(driver.page_source, "html.parser")
+    try:
+        soup = BeautifulSoup(driver.page_source, "html.parser")
 
-    items = []
-    cards = soup.select("div.product-caption-top.mt-auto")
-    for card in cards:
-        name = card.select_one("a.twoline_ellipsis")
-        seller = card.select_one("a.product_seller_name")
-        container = card.find_previous("div")
-        price_new = container.select_one("span.price-new")
-        price_old = container.select_one("span.price-old")
-        discount = container.select_one("span.discount-off")
+        items = []
+        cards = soup.select("div.product-caption-top.mt-auto")
+        for card in cards:
+            name = card.select_one("a.twoline_ellipsis")
+            seller = card.select_one("a.product_seller_name")
+            container = card.find_previous("div")
+            price_new = container.select_one("span.price-new")
+            price_old = container.select_one("span.price-old")
+            discount = container.select_one("span.discount-off")
 
-        items.append({
-            "name": name.text.strip() if name else "N/A",
-            "price": price_new.text.strip() if price_new else "N/A",
-            "old_price": price_old.text.strip() if price_old else "N/A",
-            "discount": discount.text.strip() if discount else "N/A",
-            "seller": seller.text.strip() if seller else "N/A"
-        })
-    return items
+            items.append({
+                "name": name.text.strip() if name else "N/A",
+                "price": price_new.text.strip() if price_new else "N/A",
+                "old_price": price_old.text.strip() if price_old else "N/A",
+                "discount": discount.text.strip() if discount else "N/A",
+                "seller": seller.text.strip() if seller else "N/A"
+            })
+        print(f"Mystore Data: {items}")
+        return items
+    except Exception as e:
+        error_message = f"Error scraping Mystore: {e}"
+        print(error_message)
+        return []
 
 def scrape_url(url, driver: WebDriver):
     """
@@ -320,3 +356,20 @@ def write_csv(data, platform, restaurant, city):
     except Exception as e:
         print(f"Error writing to CSV: {e}")
         return None
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python main.py <url>")
+        sys.exit(1)
+
+    target_url = sys.argv[1]
+    driver = get_driver()
+    try:
+        scraped_data, restaurant, city, platform = scrape_url(target_url, driver)
+        if scraped_data is not None:
+            import json
+            print(f"{json.dumps(scraped_data)}|{restaurant}|{city}|{platform}")
+        else:
+            print("Error during scraping.")
+    finally:
+        driver.quit()

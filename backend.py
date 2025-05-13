@@ -25,7 +25,7 @@ def scrape_url(url: str):
     """
     try:
         # Construct the command.  Use the Python executable in the current environment.
-        cmd = [sys.executable, "main.py", url]  # Changed "scraper.py" to "main.py"
+        cmd = [sys.executable, "scraper.py", url]  
         print(f"Running scraper command: {cmd}")  # Good practice to log commands
 
         # Run the subprocess and capture output
@@ -64,7 +64,7 @@ def scrape_url(url: str):
             raise HTTPException(status_code=500, detail="Scraper returned invalid data format")
 
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="main.py not found") # Changed "scraper.py" to "main.py"
+        raise HTTPException(status_code=500, detail="scraper.py not found") # Changed "scraper.py" to "main.py"
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=500, detail="Scraping process timed out")
     except Exception as e:
