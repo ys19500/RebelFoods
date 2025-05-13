@@ -39,4 +39,3 @@ EXPOSE 8000  # Changed to 8000, a more standard port for web applications
 
 # Use the correct command to start your application.
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"] #Make sure app:app is correct
-```
