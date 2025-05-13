@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .  # Assuming your Dockerfile is in the same directory
+    ports:
+      - "8000:8000"
+    environment:
+      # Any environment variables your backend needs
+      # For example, if your backend needs the Selenium Grid URL:
+      SELENIUM_URL: http://selenium:4444/wd/hub
+    depends_on:
+      - selenium-hub
+
+  selenium-hub:
+    image: selenium/hub:4.19.1 # Use the version you prefer
+    ports:
+      - "4444:4444"
+
+  chrome:
+    image: selenium/node-chrome:4.19.1 # Use the same version as the hub
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
